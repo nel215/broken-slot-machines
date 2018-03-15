@@ -8,6 +8,31 @@ using namespace std;
 #include "play_slots.hpp"
 PlaySlotsClass PlaySlots;
 
+class Dirichlet {
+  vector<double> alpha;
+ public:
+  explicit Dirichlet(vector<double> alpha): alpha(alpha) {
+  }
+};
+
+class Slot {
+  vector<Dirichlet> wheels;
+ public:
+  Slot() {
+    // 2: AA
+    // 4: BBBB
+    // 5: CCCCC
+    // 6: DDDDDD
+    // 6: EEEEEE
+    // 7: FFFFFFF
+    // 8: GGGGGGGG
+    vector<double> alpha = {2, 4, 5, 6, 6, 7, 8};
+    wheels.push_back(Dirichlet(alpha));
+    wheels.push_back(Dirichlet(alpha));
+    wheels.push_back(Dirichlet(alpha));
+  }
+};
+
 class BrokenSlotMachines {
  public:
   int playSlots(int coins, int maxTime, int noteTime, int numMachines) {
