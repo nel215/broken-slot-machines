@@ -1,10 +1,10 @@
 #ifndef PLAY_SLOTS_HPP_
 #define PLAY_SLOTS_HPP_
-#include<string>
-#include<vector>
-#include<utility>
+#include <string>
+#include <vector>
+#include <utility>
 #include <sstream>
-using namespace std;  // noqa
+using namespace std;
 
 class PlaySlotsClass {
   int randint(int b) {

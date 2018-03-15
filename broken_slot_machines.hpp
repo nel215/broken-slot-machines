@@ -1,5 +1,10 @@
 #ifndef BROKEN_SLOT_MACHINES_HPP_
 #define BROKEN_SLOT_MACHINES_HPP_
+#include <string>
+#include <vector>
+#include <utility>
+using namespace std;
+
 #include "play_slots.hpp"
 PlaySlotsClass PlaySlots;
 
