@@ -6,11 +6,13 @@ using namespace std;
 int main() {
   int coins, maxTime, noteTime, numMachines;
   cin >> coins >> maxTime >> noteTime >> numMachines;
-  vector<string> wheels;
-  for (int i=0; i < 3; i++) {
-    string w;
-    cin >> w;
-    wheels.push_back(w);
+  vector<vector<string>> wheels;
+  for (int i=0; i < numMachines; i++) {
+    vector<string> wheel(3);
+    for (int j=0; j < 3; j++) {
+      cin >> wheel[j];
+    }
+    wheels.push_back(wheel);
   }
 
   BrokenSlotMachines x;
