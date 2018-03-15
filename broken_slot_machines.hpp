@@ -6,9 +6,13 @@ PlaySlotsClass PlaySlots;
 class BrokenSlotMachines {
  public:
   int playSlots(int coins, int maxTime, int noteTime, int numMachines) {
-    for (int i=0; i < 100; i++) {
+    for (int i=0; i < 20; i++) {
       int win = PlaySlots.quickPlay(0, 1);
       cerr << win << endl;
+    }
+    for (int i=0; i < 20; i++) {
+      auto hint = PlaySlots.notePlay(0, 1)[1];
+      cerr << hint << endl;
     }
     return 0;
   }

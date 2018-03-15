@@ -3,6 +3,7 @@
 #include<string>
 #include<vector>
 #include<utility>
+#include <sstream>
 using namespace std;  // noqa
 
 class PlaySlotsClass {
@@ -10,9 +11,10 @@ class PlaySlotsClass {
     // TODO: good rng
     return rand() % b;
   }
-  pair<int, vector<string>> doPlay(int machineNumber, int times) {
+  vector<string> doPlay(int machineNumber, int times) {
     int win = 0;
     vector<string> res;
+    res.push_back("");
     for (int i = 0; i < times; i++) {
       if (coins <= 0) {
         throw "Attempted to play after coins ran out.";
@@ -39,7 +41,10 @@ class PlaySlotsClass {
       if (s[3] == 'G') win +=    5;
     }
     coins += win;
-    return make_pair(win, res);
+    stringstream ss;
+    ss << win;
+    ss >> res[0];
+    return res;
   }
 
  public:
@@ -63,9 +68,20 @@ class PlaySlotsClass {
       throw "Attempted to play after time ran out.";
     }
     maxTime -= times;
-    return doPlay(machineNumber, times).first;
+    vector<string> res = doPlay(machineNumber, times);
+    stringstream ss;
+    ss << res[0];
+    int win;
+    ss >> win;
+    return win;
   }
-  vector<string> notePlay(int machineNumber, int times);
+  vector<string> notePlay(int machineNumber, int times){
+    if (times * noteTime > maxTime) {
+      throw "Attempted to play after time ran out.";
+    }
+    maxTime -= times * noteTime;
+    return doPlay(machineNumber, times);
+  }
 };
 
 #endif  // PLAY_SLOTS_HPP_
