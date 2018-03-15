@@ -3,7 +3,7 @@
 
 class BrokenSlotMachines {
  public:
-  int playSlots(int coints, int maxTime, int noteTime, int numMachines) {
+  int playSlots(int coins, int maxTime, int noteTime, int numMachines) {
     return 0;
   }
 };
