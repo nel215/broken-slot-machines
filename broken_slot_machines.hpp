@@ -1,5 +1,7 @@
 #ifndef BROKEN_SLOT_MACHINES_HPP_
 #define BROKEN_SLOT_MACHINES_HPP_
+#include "play_slots.hpp"
+PlaySlotsClass PlaySlots;
 
 class BrokenSlotMachines {
  public:
