@@ -15,10 +15,10 @@ class Dirichlet {
   }
 };
 
-class Slot {
+class Machine {
   vector<Dirichlet> wheels;
  public:
-  Slot() {
+  Machine() {
     // 2: AA
     // 4: BBBB
     // 5: CCCCC
@@ -34,8 +34,20 @@ class Slot {
 };
 
 class BrokenSlotMachines {
- public:
-  int playSlots(int coins, int maxTime, int noteTime, int numMachines) {
+  int coins;
+  int maxTime;
+  int noteTime;
+  vector<Machine> machines;
+  void initialize(int coins, int maxTime, int noteTime, int numMachines) {
+    this->coins = coins;
+    this->maxTime = maxTime;
+    this->noteTime = noteTime;
+    machines.clear();
+    for (int i=0; i < numMachines; i++) {
+      machines.push_back(Machine());
+    }
+  }
+  void play() {
     for (int i=0; i < 20; i++) {
       int win = PlaySlots.quickPlay(0, 1);
       cerr << win << endl;
@@ -44,6 +56,12 @@ class BrokenSlotMachines {
       auto hint = PlaySlots.notePlay(0, 1)[1];
       cerr << hint << endl;
     }
+  }
+
+ public:
+  int playSlots(int coins, int maxTime, int noteTime, int numMachines) {
+    initialize(coins, maxTime, noteTime, numMachines);
+    play();
     return 0;
   }
 };
