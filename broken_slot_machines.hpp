@@ -6,8 +6,9 @@
 #include <algorithm>
 using namespace std;
 
+#ifdef LOCAL
 #include "play_slots.hpp"
-PlaySlotsClass PlaySlots;
+#endif
 
 const int numSymbols = 7;
 const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
@@ -222,10 +223,10 @@ class BrokenSlotMachines {
     cerr << "best aquisition: " << best_acq << ", " << best_act.first << " " << best_act.second << endl;
     int win;
     if (best_act.second == 0) {
-      win = PlaySlots.quickPlay(best_act.first, 1);
+      win = PlaySlots::quickPlay(best_act.first, 1);
       coins--;
     } else {
-      vector<string> note = PlaySlots.notePlay(best_act.first, 1);
+      vector<string> note = PlaySlots::notePlay(best_act.first, 1);
       machines[best_act.first].update(note[1]);
       stringstream ss;
       ss << note[0];
