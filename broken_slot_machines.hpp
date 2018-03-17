@@ -12,6 +12,31 @@ PlaySlotsClass PlaySlots;
 const int numSymbols = 7;
 const double rewards[7] = {1000, 200, 100, 50, 20, 10, 5};
 
+class XorShift {
+  uint32_t x;
+  uint32_t y;
+  uint32_t z;
+  uint32_t w;
+  uint32_t max_uint32 = static_cast<uint32_t>(-1);
+ public:
+  explicit XorShift(int seed) {
+    std::srand(seed);
+    x = std::rand();
+    y = std::rand();
+    z = std::rand();
+    w = std::rand();
+  }
+  uint32_t rand() {
+    uint32_t t = x ^ (x << 11);
+    x = y; y = z; z = w;
+    return w = (w ^ (w >> 19)) ^ (t ^ (t >> 8));
+  }
+  double uniform() {
+    double a = rand();
+    return a/max_uint32;
+  }
+};
+
 class Dirichlet {
   int size;
   vector<double> alpha;
