@@ -127,6 +127,11 @@ class Machine {
     wheels[1].add(sym);
     wheels[2].add(sym);
   }
+  void update(const string &symbols) {
+    for (int i=0; i < 9; i++) {
+      wheels[i%3].add(symbols[i]-'A');
+    }
+  }
   double symbolVariance() {
     double var = 0;
     for (int wi=0; wi < 3; wi++) {
@@ -154,12 +159,14 @@ class Machine {
     }
     return var;
   }
-  double acquisition(double best_win) {
+  void acquisition(double best_win, int noteTime, double &quickAcq, double &noteAcq) {
     double win_exp, win_var;
     calculateWinStats(win_exp, win_var);
-    double curVar = symbolVariance();
-    double nexVar = sampleSymbolVariance();
-    return win_exp + 0.5*win_var - best_win + 0.5*(curVar-nexVar);
+    double curStd = sqrt(symbolVariance());
+    double nexStd = sqrt(sampleSymbolVariance());
+    quickAcq = win_exp + 0.5*win_var - best_win;
+    // cerr << (curStd-nexStd) << endl;
+    noteAcq = win_exp + 0.5*win_var - best_win*noteTime  + 1000.0*(curStd-nexStd);
   }
 };
 
@@ -190,32 +197,45 @@ class BrokenSlotMachines {
   }
   void play() {
     double bestWin = getBestExpectedWin();
-    int best_idx = 0;
+    auto best_act = make_pair(0, 0);
     double best_acq = 0;
     for (int i=0; i < numMachines; i++) {
-      auto acq = machines[i].acquisition(bestWin);
-      if (acq > best_acq) {
-        best_acq = acq;
-        best_idx = i;
+      double quickAcq, noteAcq;
+      machines[i].acquisition(bestWin, noteTime, quickAcq, noteAcq);
+      if (quickAcq > best_acq) {
+        best_acq = quickAcq;
+        best_act = make_pair(i, 0);
+      }
+      if (noteAcq > best_acq) {
+        best_acq = noteAcq;
+        best_act = make_pair(i, 1);
       }
     }
-    cerr << "best aquisition: " << best_acq << ", " << best_idx << endl;
-    int win = PlaySlots.quickPlay(best_idx, 1);
-    cerr << win << endl;
+    cerr << "best aquisition: " << best_acq << ", " << best_act.first << " " << best_act.second << endl;
+    int win;
+    if (best_act.second == 0) {
+      win = PlaySlots.quickPlay(best_act.first, 1);
+      coins--;
+    } else {
+      vector<string> note = PlaySlots.notePlay(best_act.first, 1);
+      machines[best_act.first].update(note[1]);
+      stringstream ss;
+      ss << note[0];
+      ss >> win;
+      coins--;
+    }
     if (win > 0) {
       for (int i=0; i < numSymbols; i++) {
         if (win == rewards[i]) {
-          machines[best_idx].update(i);
+          machines[best_act.first].update(i);
         }
       }
     }
-    // for (int i=0; i < 20; i++) {
-    //   auto hint = PlaySlots.notePlay(0, 1)[1];
-    //   cerr << hint << endl;
-    // }
+    coins += win;
+    cerr << "coins: " << coins << endl;
   }
   void loop() {
-    for (int i=0; i < maxTime; i++) {
+    for (int i=0; i < 500; i++) {
       play();
     }
   }
