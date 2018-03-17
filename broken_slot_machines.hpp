@@ -10,7 +10,7 @@ using namespace std;
 PlaySlotsClass PlaySlots;
 
 const int numSymbols = 7;
-const double rewards[7] = {1000, 200, 100, 50, 20, 10, 5};
+const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 
 class XorShift {
   uint32_t x;
@@ -85,6 +85,7 @@ class Dirichlet {
 
 class Machine {
   vector<Dirichlet> wheels;
+  vector<double> winCount;
 
  public:
   Machine() {
@@ -99,19 +100,34 @@ class Machine {
     wheels.push_back(Dirichlet(alpha));
     wheels.push_back(Dirichlet(alpha));
     wheels.push_back(Dirichlet(alpha));
+    winCount.assign(numSymbols+1, 0);
   }
   void calculateWinStats(double &exp, double &var) {
-    // TODO: use observed data
-    exp = 0;
-    var = 0;
+    double posterior[numSymbols+1];
+    posterior[numSymbols] = 1;
     for (int i=0; i < numSymbols; i++) {
       double p = 1;
       for (int j=0; j < 3; j++) {
         p *= wheels[j].expectedValue(i);
       }
+      posterior[numSymbols] *= (1.-p);
+      posterior[i] = p + winCount[i];
+    }
+    posterior[numSymbols] += winCount[numSymbols];
+    double sum = 0;
+    for (int i=0; i < numSymbols+1; i++) {
+      sum += posterior[i];
+    }
+    exp = 0;
+    var = 0;
+    for (int i=0; i < numSymbols+1; i++) {
+      double p = posterior[i] / sum;
       exp += rewards[i] * p;
       var += p * (1.-p);
     }
+  }
+  void add(int sym) {
+    winCount[sym] += 1;
   }
   void update(int sym) {
     wheels[0].add(sym);
@@ -151,13 +167,14 @@ class Machine {
     return var;
   }
   void acquisition(double best_win, int noteTime, double &quickAcq, double &noteAcq) {
-    double win_exp, win_var;
-    calculateWinStats(win_exp, win_var);
+    double winExp, winVar;
+    calculateWinStats(winExp, winVar);
+    double winStd = sqrt(winVar);
     double curStd = sqrt(symbolVariance());
     double nexStd = sqrt(sampleSymbolVariance());
-    quickAcq = win_exp + 0.5*win_var - best_win;
-    // cerr << (curStd-nexStd) << endl;
-    noteAcq = win_exp + 0.5*win_var - best_win*noteTime  + 1000.0*(curStd-nexStd);
+    quickAcq = winExp + 0.5*winStd - best_win;
+    cerr << winExp << " " << winVar << " " << (curStd-nexStd) << endl;
+    noteAcq = winExp + 0.5*winStd - best_win*noteTime  + 1000.0*(curStd-nexStd);
   }
 };
 
@@ -219,14 +236,17 @@ class BrokenSlotMachines {
       for (int i=0; i < numSymbols; i++) {
         if (win == rewards[i]) {
           machines[best_act.first].update(i);
+          machines[best_act.first].add(i);
         }
       }
+    } else {
+      machines[best_act.first].add(numSymbols);
     }
     coins += win;
     cerr << "coins: " << coins << endl;
   }
   void loop() {
-    for (int i=0; i < 500; i++) {
+    for (int i=0; i < 1000; i++) {
       play();
     }
   }
