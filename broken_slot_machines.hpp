@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <algorithm>
 using namespace std;
 
 #include "play_slots.hpp"
@@ -54,21 +55,27 @@ class Machine {
     wheels.push_back(Dirichlet(alpha));
     wheels.push_back(Dirichlet(alpha));
   }
-  double expectedCoins() {
-    double res = 0;
+  void calculateWinStats(double &exp, double &var) {
+    exp = 0;
+    var = 0;
     for (int i=0; i < numSymbols; i++) {
       double p = 1;
       for (int j=0; j < 3; j++) {
         p *= wheels[j].expectedValue[i];
       }
-      res += rewards[i] * p;
+      exp += rewards[i] * p;
+      var += p * (1.-p);
     }
-    return res;
   }
   void update(int sym) {
     wheels[0].add(sym);
     wheels[1].add(sym);
     wheels[2].add(sym);
+  }
+  double acquisition(double best_win) {
+    double win_exp, win_var;
+    calculateWinStats(win_exp, win_var);
+    return win_exp + 0.5*win_var - best_win;
   }
 };
 
@@ -88,18 +95,27 @@ class BrokenSlotMachines {
       machines.push_back(Machine());
     }
   }
+  double getBestExpectedWin() {
+    double best = 0;
+    for (auto &m : machines) {
+      double exp, std;
+      m.calculateWinStats(exp, std);
+      best = max(best, exp);
+    }
+    return best;
+  }
   void play() {
+    double bestWin = getBestExpectedWin();
     int best_idx = 0;
-    double best_exp = 0;
+    double best_acq = 0;
     for (int i=0; i < numMachines; i++) {
-      auto expected = machines[i].expectedCoins();
-      cerr << i << " " << expected << endl;
-      if (expected > best_exp) {
-        best_exp = expected;
+      auto acq = machines[i].acquisition(bestWin);
+      if (acq > best_acq) {
+        best_acq = acq;
         best_idx = i;
       }
     }
-    cerr << "best: " << best_exp << ", " << best_idx << endl;
+    cerr << "best aquisition: " << best_acq << ", " << best_idx << endl;
     int win = PlaySlots.quickPlay(best_idx, 1);
     cerr << win << endl;
     if (win > 0) {
