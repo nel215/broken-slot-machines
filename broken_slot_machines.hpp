@@ -42,42 +42,29 @@ class Dirichlet {
   int size;
   vector<double> alpha;
   double sum;
-  void updateExpectedValue() {
-    for (int i=0; i < size; i++) {
-      expectedValue[i] = alpha[i];
-    }
-    for (int i=0; i < size; i++) {
-      expectedValue[i] /= sum;
-    }
-  }
 
  public:
-  vector<double> expectedValue;
   explicit Dirichlet(vector<double> alpha):
     size(alpha.size()),
-    alpha(alpha),
-    expectedValue(vector<double>(size)) {
+    alpha(alpha) {
     sum = 0;
     for (int i=0; i < size; i++) {
       sum += alpha[i];
     }
-    updateExpectedValue();
   }
   void add(int i) {
     alpha[i] += 1;
     sum += 1;
-    updateExpectedValue();
   }
   void sub(int i) {
     alpha[i] -= 1;
     sum -= 1;
-    updateExpectedValue();
   }
   int sample() {
     double p = rng.uniform();
     double tmp = 0;
     for (int i=0; i < size; i++) {
-      tmp += expectedValue[i];
+      tmp += expectedValue(i);
       if (p < tmp) {
         return i;
       }
@@ -90,6 +77,9 @@ class Dirichlet {
       res += alpha[i]*(sum-alpha[i]);
     }
     return res / (sum*sum*(sum+1));
+  }
+  double expectedValue(int i) const {
+    return alpha[i] / sum;
   }
 };
 
@@ -111,12 +101,13 @@ class Machine {
     wheels.push_back(Dirichlet(alpha));
   }
   void calculateWinStats(double &exp, double &var) {
+    // TODO: use observed data
     exp = 0;
     var = 0;
     for (int i=0; i < numSymbols; i++) {
       double p = 1;
       for (int j=0; j < 3; j++) {
-        p *= wheels[j].expectedValue[i];
+        p *= wheels[j].expectedValue(i);
       }
       exp += rewards[i] * p;
       var += p * (1.-p);
