@@ -26,6 +26,7 @@ void flush() {
 }
 }  // namespace logger
 
+const double alpha[7] = {2, 4, 5, 6, 6, 7, 8};
 const int numSymbols = 7;
 const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 
@@ -55,152 +56,55 @@ class XorShift {
 };
 XorShift rng(215);
 
-class Dirichlet {
-  int size;
-  vector<double> alpha;
-  double sum;
-
- public:
-  explicit Dirichlet(vector<double> alpha):
-    size(alpha.size()),
-    alpha(alpha) {
-    sum = 0;
-    for (int i=0; i < size; i++) {
-      sum += alpha[i];
-    }
-  }
-  void add(int i) {
-    alpha[i] += 1;
-    sum += 1;
-  }
-  void sub(int i) {
-    alpha[i] -= 1;
-    sum -= 1;
-  }
-  int sample() {
-    double p = rng.uniform();
-    double tmp = 0;
-    for (int i=0; i < size; i++) {
-      tmp += expectedValue(i);
-      if (p < tmp) {
-        return i;
-      }
-    }
-    return size-1;
-  }
-  double var() {
-    double res = 0;
-    for (int i=0; i < size; i++) {
-      res += alpha[i]*(sum-alpha[i]);
-    }
-    return res / (sum*sum*(sum+1));
-  }
-  double expectedValue(int i) const {
-    return alpha[i] / sum;
-  }
-};
-
 class Machine {
   int id;
-  vector<Dirichlet> wheels;
   vector<double> winCount;
 
  public:
+  vector<double> exp;
+  vector<double> std;
+  int noteCount;
   explicit Machine(int id) : id(id) {
-    // 2: AA
-    // 4: BBBB
-    // 5: CCCCC
-    // 6: DDDDDD
-    // 6: EEEEEE
-    // 7: FFFFFFF
-    // 8: GGGGGGGG
-    vector<double> alpha = {2, 4, 5, 6, 6, 7, 8};
-    wheels.push_back(Dirichlet(alpha));
-    wheels.push_back(Dirichlet(alpha));
-    wheels.push_back(Dirichlet(alpha));
-    winCount.assign(numSymbols+1, 0);
+    winCount.assign(numSymbols+1, 0.1);
+    exp.assign(numSymbols+1, 0);
+    std.assign(numSymbols+1, 0);
+    updateStats();
   }
-  void calculateWinStats(double &exp, double &var) {
-    double posterior[numSymbols+1];
-    posterior[numSymbols] = 1;
-    for (int i=0; i < numSymbols; i++) {
-      double p = 1;
-      for (int j=0; j < 3; j++) {
-        p *= wheels[j].expectedValue(i);
-      }
-      posterior[numSymbols] *= (1.-p);
-      posterior[i] = p + winCount[i];
-    }
-    posterior[numSymbols] += winCount[numSymbols];
+  void updateStats() {
     double sum = 0;
     for (int i=0; i < numSymbols+1; i++) {
-      sum += posterior[i];
+      sum += winCount[i];
     }
-    exp = 0;
-    var = 0;
     for (int i=0; i < numSymbols+1; i++) {
-      double p = posterior[i] / sum;
-      exp += rewards[i] * p;
-      var += p * (1.-p);
+      double p = winCount[i] / sum;
+      exp[i] = p;
+      std[i] = sqrt(p*(1.-p));
     }
   }
   void add(int sym) {
     winCount[sym] += 1;
   }
-  void update(int sym) {
-    wheels[0].add(sym);
-    wheels[1].add(sym);
-    wheels[2].add(sym);
-  }
-  void update(const string &symbols) {
-    for (int i=0; i < 9; i++) {
-      wheels[i%3].add(symbols[i]-'A');
-    }
-  }
-  double symbolVariance() {
-    double var = 0;
-    for (int wi=0; wi < 3; wi++) {
-      var += wheels[wi].var();
-    }
-    return var;
-  }
-  double sampleSymbolVariance() {
-    static int symbol_tmp[3][3];
-    for (int wi=0; wi < 3; wi++) {
-      for (int i=0; i < 3; i++) {
-        symbol_tmp[wi][i] = wheels[wi].sample();
+  double sample() {
+    double winExp = 0;
+    double q = 1./(numSymbols+1);
+    int n = 100;
+    for (int k=0; k < n; k++) {
+      double r = rng.uniform();
+      double sum = 0;
+      double e = -1;
+      for (int i=0; i < numSymbols+1; i++) {
+        sum += q;
+        if (sum > r && e < 0) {
+          e = rewards[i]*exp[i]/q;
+        }
       }
+      winExp += e;
     }
-    for (int wi=0; wi < 3; wi++) {
-      for (int i=0; i < 3; i++) {
-        wheels[wi].add(symbol_tmp[wi][i]);
-      }
-    }
-    double var = symbolVariance();
-    for (int wi=0; wi < 3; wi++) {
-      for (int i=0; i < 3; i++) {
-        wheels[wi].sub(symbol_tmp[wi][i]);
-      }
-    }
-    return var;
-  }
-  void acquisition(double best_win, int noteTime, double &quickAcq, double &noteAcq) {
-    double winExp, winVar;
-    calculateWinStats(winExp, winVar);
-    double winStd = sqrt(winVar);
-    double curSymStd = sqrt(symbolVariance());
-    double nexSymStd = sqrt(sampleSymbolVariance());
-    double winStdCoef = 2.0;
-    quickAcq = winExp + winStdCoef*winStd - best_win;
-    noteAcq = winExp + winStdCoef*winStd - best_win*noteTime  + 1000.0*(curSymStd-nexSymStd);
+    winExp /= n;
     logger::log("machine_id", id);
     logger::log("win_exp", winExp);
-    logger::log("win_std", winStd);
-    logger::log("cur_sym_std", curSymStd);
-    logger::log("nex_sym_std", nexSymStd);
-    logger::log("quick_acq", quickAcq);
-    logger::log("note_acq", noteAcq);
     logger::flush();
+    return winExp;
   }
 };
 
@@ -226,64 +130,32 @@ class BrokenSlotMachines {
       machines.push_back(Machine(i));
     }
   }
-  double getBestExpectedWin() {
-    double best = 0;
-    for (auto &m : machines) {
-      double exp, std;
-      m.calculateWinStats(exp, std);
-      best = max(best, exp);
-    }
-    return best;
-  }
   void play() {
-    double bestWin = getBestExpectedWin();
-    auto best_act = make_pair(0, 0);
-    double best_acq = 0;
+    auto best_idx = 0;
+    double best_acq = -1e9;
     for (int i=0; i < numMachines; i++) {
-      double quickAcq, noteAcq;
-      machines[i].acquisition(bestWin, noteTime, quickAcq, noteAcq);
-      if (quickAcq > best_acq) {
-        best_acq = quickAcq;
-        best_act = make_pair(i, 0);
-      }
-      if (noteAcq > best_acq && remTime >= noteTime) {
-        best_acq = noteAcq;
-        best_act = make_pair(i, 1);
+      double acq = machines[i].sample();
+      if (acq > best_acq) {
+        best_acq = acq;
+        best_idx = i;
       }
     }
 
-    logger::log("best_id", best_act.first);
-    logger::log("best_action", best_act.second);
+    logger::log("best_id", best_idx);
     logger::log("best_acq", best_acq);
 
-    int win;
-    if (best_act.second == 0) {
-      win = PlaySlots::quickPlay(best_act.first, 1);
-      coins--;
-      remTime--;
-    } else {
-      vector<string> note = PlaySlots::notePlay(best_act.first, 1);
-      machines[best_act.first].update(note[1]);
-      stringstream ss;
-      ss << note[0];
-      ss >> win;
-      coins--;
-      remTime -= noteTime;
-      logger::log("note", note[1]);
-    }
+    auto &m = machines[best_idx];
 
-    logger::log("win", win);
-    if (win > 0) {
-      for (int i=0; i < numSymbols; i++) {
-        if (win == rewards[i]) {
-          machines[best_act.first].update(i);
-          machines[best_act.first].add(i);
-        }
+    int win = PlaySlots::quickPlay(best_idx, 1);
+    coins--;
+    remTime--;
+
+    for (int i=0; i < numSymbols+1; i++) {
+      if (win == rewards[i]) {
+        m.add(i);
       }
-    } else {
-      machines[best_act.first].add(numSymbols);
     }
-    logger::flush();
+    m.updateStats();
 
     coins += win;
   }
