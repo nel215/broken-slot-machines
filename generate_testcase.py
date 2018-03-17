@@ -26,7 +26,7 @@ def generate(seed):
 
 
 def main():
-    for seed in range(10):
+    for seed in range(1000):
         generate(seed)
 
 
