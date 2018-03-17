@@ -42,13 +42,11 @@ vector<vector<string>> wheels;
 // utility
 void initialize() {
   cin >> coins >> maxTime >> noteTime >> numMachines;
-  cerr << coins << " " << maxTime << " " << noteTime << " " << numMachines << endl;
   wheels.clear();
   for (int i=0; i < numMachines; i++) {
     vector<string> wheel(3);
     for (int j=0; j < 3; j++) {
       cin >> wheel[j];
-      cerr << wheel[j] << (j == 2 ? '\n' : ' ');
     }
     wheels.push_back(wheel);
   }

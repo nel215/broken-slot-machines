@@ -10,6 +10,22 @@ using namespace std;
 #include "play_slots.hpp"
 #endif
 
+namespace logger {
+using namespace std;
+stringstream ss;
+void log(string k, const double &v) {
+  ss << k << ":" << v << "\t";
+}
+void log(string k, const string &v) {
+  ss << k << ":" << v << "\t";
+}
+
+void flush() {
+  cerr << ss.str() << endl;
+  ss = stringstream();
+}
+}  // namespace logger
+
 const int numSymbols = 7;
 const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 
@@ -85,11 +101,12 @@ class Dirichlet {
 };
 
 class Machine {
+  int id;
   vector<Dirichlet> wheels;
   vector<double> winCount;
 
  public:
-  Machine() {
+  explicit Machine(int id) : id(id) {
     // 2: AA
     // 4: BBBB
     // 5: CCCCC
@@ -171,28 +188,42 @@ class Machine {
     double winExp, winVar;
     calculateWinStats(winExp, winVar);
     double winStd = sqrt(winVar);
-    double curStd = sqrt(symbolVariance());
-    double nexStd = sqrt(sampleSymbolVariance());
-    quickAcq = winExp + 0.5*winStd - best_win;
-    cerr << winExp << " " << winVar << " " << (curStd-nexStd) << endl;
-    noteAcq = winExp + 0.5*winStd - best_win*noteTime  + 1000.0*(curStd-nexStd);
+    double curSymStd = sqrt(symbolVariance());
+    double nexSymStd = sqrt(sampleSymbolVariance());
+    double winStdCoef = 2.0;
+    quickAcq = winExp + winStdCoef*winStd - best_win;
+    noteAcq = winExp + winStdCoef*winStd - best_win*noteTime  + 1000.0*(curSymStd-nexSymStd);
+    logger::log("machine_id", id);
+    logger::log("win_exp", winExp);
+    logger::log("win_std", winStd);
+    logger::log("cur_sym_std", curSymStd);
+    logger::log("nex_sym_std", nexSymStd);
+    logger::log("quick_acq", quickAcq);
+    logger::log("note_acq", noteAcq);
+    logger::flush();
   }
 };
 
 class BrokenSlotMachines {
   int coins;
-  int maxTime;
+  int remTime;
   int noteTime;
   int numMachines;
   vector<Machine> machines;
   void initialize(int coins, int maxTime, int noteTime, int numMachines) {
+    logger::log("tag", "start");
+    logger::log("coins", coins);
+    logger::log("maxTime", maxTime);
+    logger::log("noteTime", noteTime);
+    logger::log("numMachines", numMachines);
+    logger::flush();
     this->coins = coins;
-    this->maxTime = maxTime;
+    this->remTime = maxTime;
     this->noteTime = noteTime;
     this->numMachines = numMachines;
     machines.clear();
     for (int i=0; i < numMachines; i++) {
-      machines.push_back(Machine());
+      machines.push_back(Machine(i));
     }
   }
   double getBestExpectedWin() {
@@ -215,16 +246,21 @@ class BrokenSlotMachines {
         best_acq = quickAcq;
         best_act = make_pair(i, 0);
       }
-      if (noteAcq > best_acq) {
+      if (noteAcq > best_acq && remTime >= noteTime) {
         best_acq = noteAcq;
         best_act = make_pair(i, 1);
       }
     }
-    cerr << "best aquisition: " << best_acq << ", " << best_act.first << " " << best_act.second << endl;
+
+    logger::log("best_id", best_act.first);
+    logger::log("best_action", best_act.second);
+    logger::log("best_acq", best_acq);
+
     int win;
     if (best_act.second == 0) {
       win = PlaySlots::quickPlay(best_act.first, 1);
       coins--;
+      remTime--;
     } else {
       vector<string> note = PlaySlots::notePlay(best_act.first, 1);
       machines[best_act.first].update(note[1]);
@@ -232,7 +268,11 @@ class BrokenSlotMachines {
       ss << note[0];
       ss >> win;
       coins--;
+      remTime -= noteTime;
+      logger::log("note", note[1]);
     }
+
+    logger::log("win", win);
     if (win > 0) {
       for (int i=0; i < numSymbols; i++) {
         if (win == rewards[i]) {
@@ -243,13 +283,20 @@ class BrokenSlotMachines {
     } else {
       machines[best_act.first].add(numSymbols);
     }
+    logger::flush();
+
     coins += win;
-    cerr << "coins: " << coins << endl;
   }
   void loop() {
-    for (int i=0; i < 1000; i++) {
+    while (remTime > 0) {
+      logger::log("rem_time", remTime);
+      logger::log("coins", coins);
+      logger::flush();
       play();
     }
+    logger::log("tag", "result");
+    logger::log("coins", coins);
+    logger::flush();
   }
 
  public:
