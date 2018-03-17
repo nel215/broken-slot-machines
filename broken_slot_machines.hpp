@@ -36,15 +36,15 @@ class XorShift {
     return a/max_uint32;
   }
 };
+XorShift rng(215);
 
 class Dirichlet {
   int size;
   vector<double> alpha;
+  double sum;
   void updateExpectedValue() {
-    double sum = 0;
     for (int i=0; i < size; i++) {
       expectedValue[i] = alpha[i];
-      sum += alpha[i];;
     }
     for (int i=0; i < size; i++) {
       expectedValue[i] /= sum;
@@ -57,11 +57,39 @@ class Dirichlet {
     size(alpha.size()),
     alpha(alpha),
     expectedValue(vector<double>(size)) {
+    sum = 0;
+    for (int i=0; i < size; i++) {
+      sum += alpha[i];
+    }
     updateExpectedValue();
   }
   void add(int i) {
     alpha[i] += 1;
+    sum += 1;
     updateExpectedValue();
+  }
+  void sub(int i) {
+    alpha[i] -= 1;
+    sum -= 1;
+    updateExpectedValue();
+  }
+  int sample() {
+    double p = rng.uniform();
+    double tmp = 0;
+    for (int i=0; i < size; i++) {
+      tmp += expectedValue[i];
+      if (p < tmp) {
+        return i;
+      }
+    }
+    return size-1;
+  }
+  double var() {
+    double res = 0;
+    for (int i=0; i < size; i++) {
+      res += alpha[i]*(sum-alpha[i]);
+    }
+    return res / (sum*sum*(sum+1));
   }
 };
 
@@ -99,10 +127,39 @@ class Machine {
     wheels[1].add(sym);
     wheels[2].add(sym);
   }
+  double symbolVariance() {
+    double var = 0;
+    for (int wi=0; wi < 3; wi++) {
+      var += wheels[wi].var();
+    }
+    return var;
+  }
+  double sampleSymbolVariance() {
+    static int symbol_tmp[3][3];
+    for (int wi=0; wi < 3; wi++) {
+      for (int i=0; i < 3; i++) {
+        symbol_tmp[wi][i] = wheels[wi].sample();
+      }
+    }
+    for (int wi=0; wi < 3; wi++) {
+      for (int i=0; i < 3; i++) {
+        wheels[wi].add(symbol_tmp[wi][i]);
+      }
+    }
+    double var = symbolVariance();
+    for (int wi=0; wi < 3; wi++) {
+      for (int i=0; i < 3; i++) {
+        wheels[wi].sub(symbol_tmp[wi][i]);
+      }
+    }
+    return var;
+  }
   double acquisition(double best_win) {
     double win_exp, win_var;
     calculateWinStats(win_exp, win_var);
-    return win_exp + 0.5*win_var - best_win;
+    double curVar = symbolVariance();
+    double nexVar = sampleSymbolVariance();
+    return win_exp + 0.5*win_var - best_win + 0.5*(curVar-nexVar);
   }
 };
 
