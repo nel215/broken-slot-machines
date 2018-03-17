@@ -29,7 +29,9 @@ class Dirichlet {
  public:
   vector<double> expectedValue;
   explicit Dirichlet(vector<double> alpha):
-    alpha(alpha), size(alpha.size()), expectedValue(vector<double>(alpha.size())) {
+    size(alpha.size()),
+    alpha(alpha),
+    expectedValue(vector<double>(size)) {
     updateExpectedValue();
   }
   void add(int i) {
