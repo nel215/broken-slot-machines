@@ -126,21 +126,25 @@ class Machine {
   double sample() {
     double winExp = 0;
     double q = 1./(numSymbols+1);
-    int n = 100;
+    int n = 10;
+    int m = 100;
+
     for (int k=0; k < n; k++) {
       updateStats();
-      double r = rng.uniform();
-      double sum = 0;
-      double e = -1;
-      for (int i=0; i < numSymbols+1; i++) {
-        sum += q;
-        if (sum > r && e < 0) {
-          e = rewards[i]*exp[i]/q;
+      for (int l=0; l < m; l++) {
+        double r = rng.uniform();
+        double sum = 0;
+        double e = -1;
+        for (int i=0; i < numSymbols+1; i++) {
+          sum += q;
+          if (sum > r && e < 0) {
+            e = rewards[i]*exp[i]/q;
+          }
         }
+        winExp += e;
       }
-      winExp += e;
     }
-    winExp /= n;
+    winExp /= n*m;
     logger::log("machine_id", id);
     logger::log("win_exp", winExp);
     logger::flush();
@@ -153,6 +157,7 @@ class BrokenSlotMachines {
   int remTime;
   int noteTime;
   int numMachines;
+  double avg_best_acq = 100;
   vector<Machine> machines;
   void initialize(int coins, int maxTime, int noteTime, int numMachines) {
     logger::log("tag", "start");
@@ -170,7 +175,7 @@ class BrokenSlotMachines {
       machines.push_back(Machine(i));
     }
   }
-  void play() {
+  bool play() {
     auto best_idx = 0;
     double best_acq = -1e9;
     for (int i=0; i < numMachines; i++) {
@@ -181,8 +186,10 @@ class BrokenSlotMachines {
       }
     }
 
+    avg_best_acq = 0.9*avg_best_acq + 0.1*best_acq;
     logger::log("best_id", best_idx);
     logger::log("best_acq", best_acq);
+    logger::log("avg_best_acq", avg_best_acq);
 
     auto &m = machines[best_idx];
 
@@ -197,13 +204,17 @@ class BrokenSlotMachines {
     }
 
     coins += win;
+    logger::flush();
+    return true;
   }
   void loop() {
     while (remTime > 0 && coins > 0) {
       logger::log("rem_time", remTime);
       logger::log("coins", coins);
       logger::flush();
-      play();
+      if (!play()) {
+        break;
+      }
     }
     logger::log("tag", "result");
     logger::log("coins", coins);
