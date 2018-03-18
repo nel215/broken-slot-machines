@@ -69,6 +69,27 @@ class XorShift {
     generated_z1 = true;
     return z0;
   }
+  double gamma(double alpha) {
+    if (alpha < 1) {
+      double x = gamma(alpha+1);
+      double u = uniform();
+      return x * pow(u, 1./alpha);
+    }
+    double d = alpha-1./3;
+    double c = 1./sqrt(9*d);
+    while (1) {
+      double z = normal();
+      double v = 1.+c*z;
+      if (v <= 0) {
+        continue;
+      }
+      double u = uniform();
+      v = pow(v, 3);
+      if (log(u) < 0.5*pow(z, 2)+d-d*v+d*log(v)) {
+        return d*v;
+      }
+    }
+  }
 };
 XorShift rng(215);
 
