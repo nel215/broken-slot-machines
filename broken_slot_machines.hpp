@@ -64,8 +64,9 @@ class XorShift {
     }
     double u1 = 1.0-uniform();
     double u2 = 1.0-uniform();
-    double z0 = sqrt(-2.0*log(u1)) * cos(2*pi*u2);
-    z1 = sqrt(-2.0*log(u1)) * sin(2*pi*u2);
+    double t = sqrt(-2.0*log(u1));
+    double z0 = t * cos(2*pi*u2);
+    z1 = t * sin(2*pi*u2);
     generated_z1 = true;
     return z0;
   }
@@ -84,8 +85,12 @@ class XorShift {
         continue;
       }
       double u = uniform();
-      v = pow(v, 3);
-      if (log(u) < 0.5*pow(z, 2)+d-d*v+d*log(v)) {
+      v = v*v*v;
+      double zz = z*z;
+      if (u < 1. - 0.0331 * zz * zz) {
+        return d*v;
+      }
+      if (log(u) < 0.5*z*z+d*(1.-v+log(v))) {
         return d*v;
       }
     }
