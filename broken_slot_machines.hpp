@@ -4,6 +4,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <sstream>
 using namespace std;
 
 #ifdef LOCAL
@@ -12,7 +13,7 @@ using namespace std;
 
 namespace logger {
 using namespace std;
-stringstream ss;
+std::stringstream ss;
 void log(string k, const double &v) {
   ss << k << ":" << v << "\t";
 }
@@ -22,7 +23,8 @@ void log(string k, const string &v) {
 
 void flush() {
   cerr << ss.str() << endl;
-  ss = stringstream();
+  ss.str("");
+  ss.clear(std::stringstream::goodbit);
 }
 }  // namespace logger
 
