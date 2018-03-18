@@ -35,7 +35,11 @@ class XorShift {
   uint32_t y;
   uint32_t z;
   uint32_t w;
-  uint32_t max_uint32 = static_cast<uint32_t>(-1);
+  double max_uint32 = static_cast<uint32_t>(-1);
+  bool generated_z1 = false;
+  double z1;
+  double pi = acos(-1.0);
+
  public:
   explicit XorShift(int seed) {
     std::srand(seed);
@@ -51,7 +55,19 @@ class XorShift {
   }
   double uniform() {
     double a = rand();
-    return a/max_uint32;
+    return a/(max_uint32+1);
+  }
+  double normal() {
+    if (generated_z1) {
+      generated_z1 = false;
+      return z1;
+    }
+    double u1 = 1.0-uniform();
+    double u2 = 1.0-uniform();
+    double z0 = sqrt(-2.0*log(u1)) * cos(2*pi*u2);
+    z1 = sqrt(-2.0*log(u1)) * sin(2*pi*u2);
+    generated_z1 = true;
+    return z0;
   }
 };
 XorShift rng(215);
