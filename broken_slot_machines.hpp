@@ -108,7 +108,8 @@ class Machine {
   vector<double> exp;
   int noteCount;
   explicit Machine(int id) : id(id) {
-    winCount.assign(numSymbols+1, 0.1);
+    vector<double> winPrior = {0.001457938474996355, 0.01166350779997084, 0.02278028867181805, 0.03936433882490159, 0.03936433882490159, 0.06250911211546872, 0.09330806239976672, 9.732376242940699};
+    winCount = winPrior;
     exp.assign(numSymbols+1, 0);
   }
   void updateStats() {
@@ -128,8 +129,8 @@ class Machine {
   double sample() {
     double winExp = 0;
     double q = 1./(numSymbols+1);
-    int n = 10;
-    int m = 100;
+    int n = 20;
+    int m = 5;
 
     for (int k=0; k < n; k++) {
       updateStats();
@@ -159,7 +160,7 @@ class BrokenSlotMachines {
   int remTime;
   int noteTime;
   int numMachines;
-  double avg_best_acq = 100;
+  double avg_best_acq = 200;
   vector<Machine> machines;
   void initialize(int coins, int maxTime, int noteTime, int numMachines) {
     logger::log("tag", "start");
