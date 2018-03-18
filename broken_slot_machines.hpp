@@ -194,6 +194,10 @@ class BrokenSlotMachines {
     logger::log("best_acq", best_acq);
     logger::log("avg_best_acq", avg_best_acq);
 
+    if (avg_best_acq < 0.9) {
+      return false;
+    }
+
     auto &m = machines[best_idx];
 
     int win = PlaySlots::quickPlay(best_idx, 1);
