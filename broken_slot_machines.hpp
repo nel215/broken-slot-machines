@@ -99,23 +99,20 @@ class Machine {
 
  public:
   vector<double> exp;
-  vector<double> std;
   int noteCount;
   explicit Machine(int id) : id(id) {
     winCount.assign(numSymbols+1, 0.1);
     exp.assign(numSymbols+1, 0);
-    std.assign(numSymbols+1, 0);
-    updateStats();
   }
   void updateStats() {
     double sum = 0;
     for (int i=0; i < numSymbols+1; i++) {
-      sum += winCount[i];
+      exp[i] = rng.gamma(winCount[i]);
+      sum += exp[i];
     }
     for (int i=0; i < numSymbols+1; i++) {
-      double p = winCount[i] / sum;
+      double p = exp[i] / sum;
       exp[i] = p;
-      std[i] = sqrt(p*(1.-p));
     }
   }
   void add(int sym) {
@@ -126,6 +123,7 @@ class Machine {
     double q = 1./(numSymbols+1);
     int n = 100;
     for (int k=0; k < n; k++) {
+      updateStats();
       double r = rng.uniform();
       double sum = 0;
       double e = -1;
@@ -192,7 +190,6 @@ class BrokenSlotMachines {
         m.add(i);
       }
     }
-    m.updateStats();
 
     coins += win;
   }
