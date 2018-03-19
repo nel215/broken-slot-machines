@@ -22,7 +22,9 @@ void log(string k, const string &v) {
 }
 
 void flush() {
+#ifdef LOCAL
   cerr << ss.str() << endl;
+#endif
   ss.str("");
   ss.clear(std::stringstream::goodbit);
 }
