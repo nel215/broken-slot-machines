@@ -28,8 +28,9 @@ void flush() {
 }
 }  // namespace logger
 
-const double alpha[7] = {2, 4, 5, 6, 6, 7, 8};
+const int numWheels = 3;
 const int numSymbols = 7;
+const double symPriorBase[7] = {2, 4, 5, 6, 6, 7, 8};
 const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 
 class XorShift {
@@ -102,20 +103,84 @@ XorShift rng(215);
 
 class Machine {
   int id;
+  vector<vector<double>> symCount;
   vector<double> winCount;
 
  public:
+  vector<vector<double>> symPosterior;
+  vector<double> winPrior;
   vector<double> exp;
   int noteCount;
   explicit Machine(int id) : id(id) {
-    vector<double> winPrior = {0.001457938474996355, 0.01166350779997084, 0.02278028867181805, 0.03936433882490159, 0.03936433882490159, 0.06250911211546872, 0.09330806239976672, 9.732376242940699};
-    winCount = winPrior;
+    vector<double> winPriorBase = {0.001457938474996355, 0.01166350779997084, 0.02278028867181805, 0.03936433882490159, 0.03936433882490159, 0.06250911211546872, 0.09330806239976672, 9.732376242940699};
+    symCount.assign(numWheels, vector<double>(numSymbols, 0));
+    symPosterior.assign(numWheels, vector<double>(numSymbols, 0));
+    for (int i=0; i < numWheels; i++) {
+      for (int j=0; j < numWheels; j++) {
+        symCount[i][j] = symPriorBase[j];
+      }
+    }
+    winCount = winPriorBase;
+    winPrior.assign(numSymbols+1, 0);
     exp.assign(numSymbols+1, 0);
   }
+  void updateSymCount(const string &note) {
+    const int numRow = 3;
+    for (int r=0; r < numRow; r++) {
+      for (int w=0; w < numWheels; w++) {
+        int i = 3*r+w;
+        symCount[w][note[i]-'A']++;
+      }
+    }
+  }
+  double getSymVariance() {
+    double res = 0;
+    for (int i=0; i < numWheels; i++) {
+      double a0 = 0;
+      for (int j=0; j < numSymbols; j++) {
+        a0 += symCount[i][j];
+      }
+      const double denom = a0*a0*(a0+1);
+      for (int j=0; j < numSymbols; j++) {
+        double a = symCount[i][j];
+        res += a*(a0-a)/denom;
+      }
+    }
+    return res;
+  }
+  void updateSymPosterior() {
+    double sumSym = 0;
+    for (int i=0; i < numWheels; i++) {
+      double sum = 0;
+      for (int j=0; j < numSymbols; j++) {
+        symPosterior[i][j] = rng.gamma(symCount[i][j]);
+        sum += symPosterior[i][j];
+      }
+      for (int j=0; j < numSymbols; j++) {
+        symPosterior[i][j] /= sum;
+      }
+      sumSym += sum;
+    }
+
+    double p0 = 1;
+    for (int i=0; i < numSymbols; i++) {
+      double p = 1;
+      for (int j=0; j < numWheels; j++) {
+        p *= symPosterior[j][i];
+      }
+      winPrior[i] = p;
+      p0 *= 1.-p;
+    }
+    winPrior[numSymbols] = p0;
+    for (int i=0; i < numSymbols+1; i++) {
+      winPrior[i] *= sumSym;
+    }
+  }
   void updateStats() {
+    updateSymPosterior();
     double sum = 0;
     for (int i=0; i < numSymbols+1; i++) {
-      exp[i] = rng.gamma(winCount[i]);
+      exp[i] = rng.gamma(winCount[i]+winPrior[i]);
       sum += exp[i];
     }
     for (int i=0; i < numSymbols+1; i++) {
@@ -194,15 +259,31 @@ class BrokenSlotMachines {
     logger::log("best_acq", best_acq);
     logger::log("avg_best_acq", avg_best_acq);
 
+
     if (avg_best_acq < 0.9) {
-      return false;
+      remTime--;
+      return true;
     }
 
     auto &m = machines[best_idx];
+    double bestVar = m.getSymVariance();
+    logger::log("best_var", bestVar);
 
-    int win = PlaySlots::quickPlay(best_idx, 1);
+    const double firstVariance = 0.157025;
+
+    int win;
+    if (bestVar > firstVariance/10 && remTime >= noteTime) {
+      vector<string> note = PlaySlots::notePlay(best_idx, 1);
+      m.updateSymCount(note[1]);
+      stringstream ss;
+      ss << note[0];
+      ss >> win;
+      remTime -= noteTime;
+    } else {
+      win = PlaySlots::quickPlay(best_idx, 1);
+      remTime -= 1;
+    }
     coins--;
-    remTime--;
 
     for (int i=0; i < numSymbols+1; i++) {
       if (win == rewards[i]) {

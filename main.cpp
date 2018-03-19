@@ -34,7 +34,11 @@ int main() {
   PlaySlots::initialize();
   print_true_stats();
   BrokenSlotMachines x;
-  x.playSlots(PlaySlots::coins, PlaySlots::maxTime, PlaySlots::noteTime, PlaySlots::numMachines);
+  try {
+    x.playSlots(PlaySlots::coins, PlaySlots::maxTime, PlaySlots::noteTime, PlaySlots::numMachines);
+  } catch (char const* e) {
+    cerr << e << endl;
+  }
   print_true_stats();
   return 0;
 }
