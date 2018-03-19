@@ -80,7 +80,7 @@ void printTrueStats() {
       exp += t*rewards[s];
       var += t*(1.-t);
     }
-    optimal = max(optimal, coins+maxTime*exp);
+    optimal = max(optimal, coins+maxTime*(exp-1));
     logger::log("machine_id", i);
     logger::log("true_exp", exp);
     logger::log("true_var", var);
