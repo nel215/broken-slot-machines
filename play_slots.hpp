@@ -4,8 +4,24 @@
 #include <vector>
 #include <utility>
 #include <sstream>
+#include <algorithm>
 
 namespace PlaySlots {
+namespace logger {
+using namespace std;
+std::stringstream ss;
+void log(string k, const double &v) {
+  ss << k << ":" << v << "\t";
+}
+void log(string k, const string &v) {
+  ss << k << ":" << v << "\t";
+}
+void flush() {
+  cerr << ss.str() << endl;
+  ss.str("");
+  ss.clear(std::stringstream::goodbit);
+}
+}  // namespace logger
 using namespace std;
 // rng
 class XorShift {
@@ -37,8 +53,44 @@ int randint(int b) {
   return static_cast<int>(rng.uniform()*b);
 }
 // variable
+const int numSymbols = 7;
+const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 int coins, maxTime, noteTime, numMachines;
 vector<vector<string>> wheels;
+// misc
+void printTrueStats() {
+  double optimal = coins;
+  for (int i=0; i < numMachines; i++) {
+    const auto &wheel = wheels[i];
+    double p[3][8] = {0};
+    for (int j=0; j < 3; j++) {
+      auto w = wheel[j];
+      for (int k=0; k < w.size(); k++) {
+        p[j][w[k]-'A'] += 1.0/w.size();
+      }
+    }
+
+    double exp = 0;
+    double var = 0;
+    for (int s=0; s < numSymbols; s++) {
+      double t = 1;
+      for (int j=0; j < 3; j++) {
+        t *= p[j][s];
+      }
+      exp += t*rewards[s];
+      var += t*(1.-t);
+    }
+    optimal = max(optimal, coins+maxTime*exp);
+    logger::log("machine_id", i);
+    logger::log("true_exp", exp);
+    logger::log("true_var", var);
+    logger::flush();
+  }
+  logger::log("tag", "optimal");
+  logger::log("optimal", optimal);
+  logger::flush();
+}
+
 // utility
 void initialize() {
   cin >> coins >> maxTime >> noteTime >> numMachines;
