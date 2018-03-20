@@ -33,6 +33,7 @@ void flush() {
 const int numWheels = 3;
 const int numSymbols = 7;
 const double symPriorBase[7] = {2, 4, 5, 6, 6, 7, 8};
+const double winPriorBase[8] = {0.001457938474996355, 0.01166350779997084, 0.02278028867181805, 0.03936433882490159, 0.03936433882490159, 0.06250911211546872, 0.09330806239976672, 9.732376242940699};
 const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 
 class XorShift {
@@ -112,9 +113,9 @@ class Machine {
   vector<vector<double>> symPosterior;
   vector<double> winPrior;
   vector<double> exp;
-  int noteCount;
+  double initialSymVariance;
+  double expWinAvg;
   explicit Machine(int id) : id(id) {
-    vector<double> winPriorBase = {0.001457938474996355, 0.01166350779997084, 0.02278028867181805, 0.03936433882490159, 0.03936433882490159, 0.06250911211546872, 0.09330806239976672, 9.732376242940699};
     symCount.assign(numWheels, vector<double>(numSymbols, 0));
     symPosterior.assign(numWheels, vector<double>(numSymbols, 0));
     for (int i=0; i < numWheels; i++) {
@@ -122,9 +123,14 @@ class Machine {
         symCount[i][j] = symPriorBase[j];
       }
     }
-    winCount = winPriorBase;
+    winCount.assign(numSymbols+1, 0);
+    for (int i=0; i < numSymbols+1; i++) {
+      winCount[i] = winPriorBase[i];
+    }
     winPrior.assign(numSymbols+1, 0);
     exp.assign(numSymbols+1, 0);
+    expWinAvg = 1.5;
+    initialSymVariance = getSymVariance();
   }
   void updateSymCount(const string &note) {
     const int numRow = 3;
@@ -133,6 +139,11 @@ class Machine {
         int i = 3*r+w;
         symCount[w][note[i]-'A']++;
       }
+    }
+  }
+  void updateSymCount(int sym) {
+    for (int w=0; w < numWheels; w++) {
+      symCount[w][sym]++;
     }
   }
   double getSymVariance() {
@@ -175,7 +186,9 @@ class Machine {
     }
     winPrior[numSymbols] = p0;
     for (int i=0; i < numSymbols+1; i++) {
-      winPrior[i] *= sumSym;
+      // param
+      winPrior[i] *= sumSym * 10.0;
+      // winPrior[i] *= sumSym;
     }
   }
   void updateStats() {
@@ -191,13 +204,13 @@ class Machine {
     }
   }
   void add(int sym) {
-    winCount[sym] += 1;
+    winCount[sym] += 0.1;
   }
   double sample() {
     double winExp = 0;
     double q = 1./(numSymbols+1);
     int n = 20;
-    int m = 5;
+    int m = 20;
 
     for (int k=0; k < n; k++) {
       updateStats();
@@ -215,8 +228,10 @@ class Machine {
       }
     }
     winExp /= n*m;
+    expWinAvg = 0.95 * expWinAvg + (1.-0.95) * winExp;
     logger::log("machine_id", id);
     logger::log("win_exp", winExp);
+    logger::log("exp_win_avg", expWinAvg);
     logger::flush();
     return winExp;
   }
@@ -227,7 +242,6 @@ class BrokenSlotMachines {
   int remTime;
   int noteTime;
   int numMachines;
-  double avg_best_acq = 200;
   vector<Machine> machines;
   void initialize(int coins, int maxTime, int noteTime, int numMachines) {
     logger::log("tag", "start");
@@ -256,13 +270,11 @@ class BrokenSlotMachines {
       }
     }
 
-    avg_best_acq = 0.9*avg_best_acq + 0.1*best_acq;
     logger::log("best_id", best_idx);
     logger::log("best_acq", best_acq);
-    logger::log("avg_best_acq", avg_best_acq);
 
-
-    if (avg_best_acq < 0.9) {
+    // param
+    if (best_acq < 0.8) {
       remTime--;
       return true;
     }
@@ -271,10 +283,9 @@ class BrokenSlotMachines {
     double bestVar = m.getSymVariance();
     logger::log("best_var", bestVar);
 
-    const double firstVariance = 0.0646708;
-
     int win;
-    if (bestVar > firstVariance/10 && remTime >= noteTime) {
+    // param
+    if (bestVar > m.initialSymVariance/5 && remTime >= noteTime) {
       vector<string> note = PlaySlots::notePlay(best_idx, 1);
       m.updateSymCount(note[1]);
       stringstream ss;
@@ -284,6 +295,11 @@ class BrokenSlotMachines {
     } else {
       win = PlaySlots::quickPlay(best_idx, 1);
       remTime -= 1;
+      for (int i=0; i < numSymbols; i++) {
+        if (win == rewards[i]) {
+          m.updateSymCount(i);
+        }
+      }
     }
     coins--;
 
