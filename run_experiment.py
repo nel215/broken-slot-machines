@@ -19,7 +19,7 @@ def run_experiment(args):
 def main():
     basicConfig(level=INFO)
     now = datetime.now()
-    logdir = os.path.join('./log', now.strftime('%Y%m%d-%H%M%M'))
+    logdir = os.path.join('./log', now.strftime('%Y%m%d-%H%M%S'))
     os.makedirs(logdir, exist_ok=True)
     executor = ProcessPoolExecutor()
     inpdir = './testcase/'
