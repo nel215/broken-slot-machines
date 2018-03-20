@@ -118,7 +118,7 @@ class Machine {
     symCount.assign(numWheels, vector<double>(numSymbols, 0));
     symPosterior.assign(numWheels, vector<double>(numSymbols, 0));
     for (int i=0; i < numWheels; i++) {
-      for (int j=0; j < numWheels; j++) {
+      for (int j=0; j < numSymbols; j++) {
         symCount[i][j] = symPriorBase[j];
       }
     }
@@ -271,7 +271,7 @@ class BrokenSlotMachines {
     double bestVar = m.getSymVariance();
     logger::log("best_var", bestVar);
 
-    const double firstVariance = 0.157025;
+    const double firstVariance = 0.0646708;
 
     int win;
     if (bestVar > firstVariance/10 && remTime >= noteTime) {
