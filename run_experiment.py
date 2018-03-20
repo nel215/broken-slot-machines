@@ -11,8 +11,13 @@ def run_experiment(args):
     fname = os.path.basename(fpath).split('.')[0]
     lpath = os.path.join(logdir, '{}.ltsv'.format(fname))
     with open(fpath) as inp_fp, open(lpath, 'w') as log_fp:
+        args = ['./a.out']
+        args += ['win-prior', '10']
+        args += ['win-count', '0.1']
+        args += ['min-exp', '0.8']
+        args += ['min-var', '0.2']
         res = subprocess.run(
-            ['./a.out'], stdin=inp_fp, stderr=log_fp)
+            args, stdin=inp_fp, stderr=log_fp)
         logger.info('{}:{}'.format(fpath, res.returncode))
 
 

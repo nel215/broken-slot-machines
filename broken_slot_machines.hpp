@@ -34,7 +34,14 @@ const int numWheels = 3;
 const int numSymbols = 7;
 const double symPriorBase[7] = {2, 4, 5, 6, 6, 7, 8};
 const double winPriorBase[8] = {0.001457938474996355, 0.01166350779997084, 0.02278028867181805, 0.03936433882490159, 0.03936433882490159, 0.06250911211546872, 0.09330806239976672, 9.732376242940699};
-const double rewards[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
+const double wins[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
+
+namespace params {
+  double winPriorPoint = 10;
+  double winCountPoint = 0.1;
+  double minExpectedWin = 0.8;
+  double minSymVarianceCoef = 0.2;
+}  // namespace params
 
 class XorShift {
   uint32_t x;
@@ -105,16 +112,19 @@ class XorShift {
 XorShift rng(215);
 
 class Machine {
-  int id;
+  // symbol params
   vector<vector<double>> symCount;
+  vector<vector<double>> symPosterior;
+
+  // win params
   vector<double> winCount;
+  vector<double> winPrior;
+  vector<double> winPosterior;
 
  public:
-  vector<vector<double>> symPosterior;
-  vector<double> winPrior;
-  vector<double> exp;
+  int id;
   double initialSymVariance;
-  double expWinAvg;
+  double expectedWin;
   explicit Machine(int id) : id(id) {
     symCount.assign(numWheels, vector<double>(numSymbols, 0));
     symPosterior.assign(numWheels, vector<double>(numSymbols, 0));
@@ -128,8 +138,7 @@ class Machine {
       winCount[i] = winPriorBase[i];
     }
     winPrior.assign(numSymbols+1, 0);
-    exp.assign(numSymbols+1, 0);
-    expWinAvg = 1.5;
+    winPosterior.assign(numSymbols+1, 0);
     initialSymVariance = getSymVariance();
   }
   void updateSymCount(const string &note) {
@@ -186,34 +195,32 @@ class Machine {
     }
     winPrior[numSymbols] = p0;
     for (int i=0; i < numSymbols+1; i++) {
-      // param
-      winPrior[i] *= sumSym * 10.0;
-      // winPrior[i] *= sumSym;
+      winPrior[i] *= sumSym * params::winPriorPoint;
     }
   }
-  void updateStats() {
+  void updateWinPosterior() {
     updateSymPosterior();
     double sum = 0;
     for (int i=0; i < numSymbols+1; i++) {
-      exp[i] = rng.gamma(winCount[i]+winPrior[i]);
-      sum += exp[i];
+      winPosterior[i] = rng.gamma(winCount[i]+winPrior[i]);
+      sum += winPosterior[i];
     }
     for (int i=0; i < numSymbols+1; i++) {
-      double p = exp[i] / sum;
-      exp[i] = p;
+      double p = winPosterior[i] / sum;
+      winPosterior[i] = p;
     }
   }
-  void add(int sym) {
-    winCount[sym] += 0.1;
+  void updateWinCount(int sym) {
+    winCount[sym] += params::winCountPoint;
   }
-  double sample() {
-    double winExp = 0;
+  void updateExpectedWin() {
+    expectedWin = 0;
     double q = 1./(numSymbols+1);
     int n = 20;
     int m = 20;
 
     for (int k=0; k < n; k++) {
-      updateStats();
+      updateWinPosterior();
       for (int l=0; l < m; l++) {
         double r = rng.uniform();
         double sum = 0;
@@ -221,19 +228,17 @@ class Machine {
         for (int i=0; i < numSymbols+1; i++) {
           sum += q;
           if (sum > r && e < 0) {
-            e = rewards[i]*exp[i]/q;
+            e = wins[i]*winPosterior[i]/q;
           }
         }
-        winExp += e;
+        expectedWin += e;
       }
     }
-    winExp /= n*m;
-    expWinAvg = 0.95 * expWinAvg + (1.-0.95) * winExp;
+    expectedWin /= n*m;
+    logger::log("tag", "updateExpectedWin");
     logger::log("machine_id", id);
-    logger::log("win_exp", winExp);
-    logger::log("exp_win_avg", expWinAvg);
+    logger::log("expected_win", expectedWin);
     logger::flush();
-    return winExp;
   }
 };
 
@@ -244,7 +249,7 @@ class BrokenSlotMachines {
   int numMachines;
   vector<Machine> machines;
   void initialize(int coins, int maxTime, int noteTime, int numMachines) {
-    logger::log("tag", "start");
+    logger::log("tag", "initialize");
     logger::log("coins", coins);
     logger::log("maxTime", maxTime);
     logger::log("noteTime", noteTime);
@@ -259,68 +264,72 @@ class BrokenSlotMachines {
       machines.push_back(Machine(i));
     }
   }
-  bool play() {
+  int findBestMachineIndex() {
     auto best_idx = 0;
-    double best_acq = -1e9;
+    double best_win = -1e9;
     for (int i=0; i < numMachines; i++) {
-      double acq = machines[i].sample();
-      if (acq > best_acq) {
-        best_acq = acq;
+      machines[i].updateExpectedWin();
+      if (machines[i].expectedWin > best_win) {
+        best_win = machines[i].expectedWin;
         best_idx = i;
       }
     }
-
+    logger::log("tag", "findBestMachine");
     logger::log("best_id", best_idx);
-    logger::log("best_acq", best_acq);
+    logger::log("best_win", best_win);
+    logger::flush();
+
+    return best_idx;
+  }
+  void action(Machine &m) {
+    logger::log("tag", "action");
 
     // param
-    if (best_acq < 0.8) {
+    if (m.expectedWin < params::minExpectedWin) {
       remTime--;
-      return true;
+      logger::log("action", "do nothing");
+      logger::flush();
+      return;
     }
 
-    auto &m = machines[best_idx];
-    double bestVar = m.getSymVariance();
-    logger::log("best_var", bestVar);
-
     int win;
-    // param
-    if (bestVar > m.initialSymVariance/5 && remTime >= noteTime) {
-      vector<string> note = PlaySlots::notePlay(best_idx, 1);
+    double bestVar = m.getSymVariance();
+    if (bestVar > m.initialSymVariance*params::minSymVarianceCoef && remTime >= noteTime) {
+      vector<string> note = PlaySlots::notePlay(m.id, 1);
+      remTime -= noteTime;
       m.updateSymCount(note[1]);
       stringstream ss;
       ss << note[0];
       ss >> win;
-      remTime -= noteTime;
     } else {
-      win = PlaySlots::quickPlay(best_idx, 1);
+      win = PlaySlots::quickPlay(m.id, 1);
       remTime -= 1;
       for (int i=0; i < numSymbols; i++) {
-        if (win == rewards[i]) {
+        if (win == wins[i]) {
           m.updateSymCount(i);
         }
       }
     }
     coins--;
+    coins += win;
 
     for (int i=0; i < numSymbols+1; i++) {
-      if (win == rewards[i]) {
-        m.add(i);
+      if (win == wins[i]) {
+        m.updateWinCount(i);
       }
     }
 
-    coins += win;
+    logger::log("best_var", bestVar);
     logger::flush();
-    return true;
   }
   void loop() {
     while (remTime > 0 && coins > 0) {
       logger::log("rem_time", remTime);
       logger::log("coins", coins);
       logger::flush();
-      if (!play()) {
-        break;
-      }
+      auto &m = machines[findBestMachineIndex()];
+
+      action(m);
     }
     logger::log("tag", "result");
     logger::log("coins", coins);
