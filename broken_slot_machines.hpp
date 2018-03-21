@@ -37,10 +37,10 @@ const double winPriorBase[8] = {0.001457938474996355, 0.01166350779997084, 0.022
 const double wins[8] = {1000, 200, 100, 50, 20, 10, 5, 0};
 
 namespace params {
-  double winPriorPoint = 10;
-  double winCountPoint = 0.1;
-  double minExpectedWin = 0.8;
-  double minSymVarianceCoef = 0.2;
+  double winPriorPoint = 15.0;
+  double winCountPoint = 0.05;
+  double minExpectedWin = 1.0112215894746595;
+  double minSymVarianceCoef = 0.189130162818155;
 }  // namespace params
 
 class XorShift {
@@ -216,8 +216,8 @@ class Machine {
   void updateExpectedWin() {
     expectedWin = 0;
     double q = 1./(numSymbols+1);
-    int n = 20;
-    int m = 20;
+    int n = 30;
+    int m = 30;
 
     for (int k=0; k < n; k++) {
       updateWinPosterior();
