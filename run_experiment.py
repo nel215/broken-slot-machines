@@ -48,20 +48,18 @@ def parse_log(args):
 
 def objective(x):
     logger.info('x: {}'.format(x))
-    basicConfig(level=INFO)
     now = datetime.now()
     logdir = os.path.join('./log', now.strftime('%Y%m%d-%H%M%S'))
     os.makedirs(logdir, exist_ok=True)
     executor = ProcessPoolExecutor()
     inpdir = './testcase/'
     args_list = []
-    total = 20
     for fname in sorted(os.listdir(inpdir)):
         if fname.find('.in') == -1:
             continue
         fpath = os.path.join(inpdir, fname)
         args_list.append([fpath, logdir, x])
-    args_list = args_list[:total]
+    total = len(args_list)
     for res in tqdm(executor.map(run_experiment, args_list), total=total, ncols=0):
         pass
 
@@ -77,18 +75,19 @@ def objective(x):
 
 def optimize():
     space = [
-        Real(1.0, 30.0, name='win_prior'),
-        Real(0.05, 10.0, name='win_count'),
-        Real(0.25, 1.0, name='min_exp'),
+        Real(5.0, 15.0, name='win_prior'),
+        Real(0.05, 3.0, name='win_count'),
+        Real(0.5, 2.0, name='min_exp'),
         Real(0.01, 0.5, name='min_var'),
     ]
 
     x0 = [10, 0.1, 0.8, 0.2]
-    res = gp_minimize(objective, space, x0=x0, n_calls=11, random_state=215)
+    res = gp_minimize(objective, space, x0=x0, n_calls=100, random_state=215)
     logger.info('best mean: {}, best x: {}'.format(-res.fun, res.x))
 
 
 def main():
+    basicConfig(level=INFO)
     optimize()
 
 
