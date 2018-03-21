@@ -41,6 +41,7 @@ namespace params {
   double winCountPoint = 0.05;
   double minExpectedWin = 1.0112215894746595;
   double minSymVarianceCoef = 0.189130162818155;
+  double noteCoin = 500;
 }  // namespace params
 
 class XorShift {
@@ -294,7 +295,12 @@ class BrokenSlotMachines {
 
     int win;
     double bestVar = m.getSymVariance();
-    if (bestVar > m.initialSymVariance*params::minSymVarianceCoef && remTime >= noteTime) {
+    bool tryNote = remTime >= noteTime;
+    tryNote = tryNote && (
+      bestVar > m.initialSymVariance*params::minSymVarianceCoef ||
+      coins <= params::noteCoin
+    );
+    if (tryNote) {
       vector<string> note = PlaySlots::notePlay(m.id, 1);
       remTime -= noteTime;
       m.updateSymCount(note[1]);

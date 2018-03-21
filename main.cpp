@@ -18,6 +18,8 @@ int main(int argc, char *argv[]) {
       params::minExpectedWin = v;
     } else if (kw == "min-var") {
       params::minSymVarianceCoef = v;
+    } else if (kw == "note-coin") {
+      params::noteCoin = v;
     } else {
       cerr << "ignore " << kw << " " << value << endl;
     }
