@@ -331,15 +331,16 @@ class BrokenSlotMachines {
 
       action(m);
     }
-    logger::log("tag", "result");
-    logger::log("coins", coins);
-    logger::flush();
   }
 
  public:
   int playSlots(int coins, int maxTime, int noteTime, int numMachines) {
+
     initialize(coins, maxTime, noteTime, numMachines);
     loop();
+    logger::log("tag", "result");
+    logger::log("coins", this->coins);
+    logger::flush();
     return 0;
   }
 };
