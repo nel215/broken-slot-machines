@@ -4,11 +4,7 @@ using namespace std;
 
 
 int main(int argc, char *argv[]) {
-  if (argc != 9) {
-    cerr << "you must specify params::* options" << endl;
-    return -1;
-  }
-  for (int i=1; i < 9; i += 2) {
+  for (int i=1; i < argc; i += 2) {
     string kw(argv[i]);
     string value(argv[i+1]);
     stringstream ss(value);
@@ -23,7 +19,7 @@ int main(int argc, char *argv[]) {
     } else if (kw == "min-var") {
       params::minSymVarianceCoef = v;
     } else {
-      cerr << "you must specify params::* options" << endl;
+      cerr << "ignore " << kw << " " << value << endl;
     }
   }
   PlaySlots::initialize();
