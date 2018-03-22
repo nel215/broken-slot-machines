@@ -329,7 +329,7 @@ class BrokenSlotMachines {
     logger::flush();
   }
   void loop() {
-    while (remTime > 0 && coins > 0) {
+    while (remTime > 0 && coins > 1) {
       logger::log("rem_time", remTime);
       logger::log("coins", coins);
       logger::flush();
