@@ -41,7 +41,7 @@ namespace params {
   double winCountPoint = 0.05;
   double minExpectedWin = 1.0112215894746595;
   double minSymVarianceCoef = 0.189130162818155;
-  double noteCoin = 500;
+  double noteCoin = 0;
 }  // namespace params
 
 class XorShift {
