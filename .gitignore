@@ -1,2 +1,5 @@
 testcase/*
 .python-version
+__pycache__
+log/*
+a.out
